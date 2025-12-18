@@ -49,3 +49,5 @@
 
 ---
 If anything above is unclear or you want deeper examples (e.g., suggested refactor PR that renames the file and adds cross-platform playback), tell me which direction you prefer and I’ll iterate. ✅
+
+> NOTE: A draft PR will be created for review. This is a non-functional, documentation-only change to demonstrate the PR workflow.
