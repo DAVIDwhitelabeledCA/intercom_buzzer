@@ -59,12 +59,60 @@ def detect_default_port() -> Optional[str]:
         patterns = []
         fallback = "COM1"
 
+    matches = []
     for p in patterns:
-        matches = glob.glob(p)
-        if matches:
-            return matches[0]
+        m = glob.glob(p)
+        matches.extend(m)
+        if m:
+            # return the first match found for predictable behavior
+            return m[0]
 
     return fallback
+
+
+def list_available_ports() -> list:
+    """Return a list of available serial device paths using platform patterns."""
+    system = platform.system()
+    patterns = []
+    if system == "Darwin":
+        patterns = ["/dev/cu.*", "/dev/tty.*"]
+    elif system == "Linux":
+        patterns = ["/dev/ttyUSB*", "/dev/ttyACM*", "/dev/serial/by-id/*"]
+    elif system == "Windows":
+        # Windows listing is not implemented here; return empty (user must pass COMx)
+        return []
+
+    ports = []
+    for p in patterns:
+        ports.extend(sorted(glob.glob(p)))
+    return ports
+
+
+def prompt_select_port(choices: list, input_fn=input) -> Optional[str]:
+    """Interactively prompt the user to select a serial port from a list.
+
+    `input_fn` is injected for easier testing.
+    Returns the chosen device path or None if the user cancels.
+    """
+    if not choices:
+        return None
+    print("Available serial devices:")
+    for i, c in enumerate(choices, start=1):
+        print(f"  {i}) {c}")
+    print("  Enter to cancel")
+
+    while True:
+        sel = input_fn("Select device by number and press Enter (or just Enter to cancel): ")
+        if sel.strip() == "":
+            return None
+        try:
+            n = int(sel.strip())
+            if 1 <= n <= len(choices):
+                return choices[n - 1]
+            else:
+                print(f"Invalid selection: {sel}. Please enter a number between 1 and {len(choices)} or Enter to cancel.")
+        except ValueError:
+            print(f"Invalid input: {sel}. Please enter a number or press Enter to cancel.")
 
 
 class USBModemHandler:
@@ -148,8 +196,26 @@ def main(argv=None):
 
     audio_player = None if args.no_audio else choose_audio_player()
 
-    logging.info("Starting modem controller (port=%s, baud=%d)", args.port, args.baud)
-    modem = USBModemHandler(args.port, baudrate=args.baud, audio_player=audio_player)
+    # Determine serial port: explicit override, auto-detection, or interactive selection
+    port = args.port
+    if not port:
+        port = detect_default_port()
+        if not port:
+            # try listing candidates and prompt the user if running in a TTY
+            candidates = list_available_ports()
+            if candidates and sys.stdin.isatty():
+                selected = prompt_select_port(candidates)
+                if selected:
+                    port = selected
+                else:
+                    logging.error("No serial port selected; exiting.")
+                    return
+            else:
+                logging.error("No serial port detected. Please run with `--port <device>`.")
+                return
+
+    logging.info("Starting modem controller (port=%s, baud=%d)", port, args.baud)
+    modem = USBModemHandler(port, baudrate=args.baud, audio_player=audio_player)
 
     try:
         if modem.detect_incoming_call():
@@ -162,6 +228,9 @@ def main(argv=None):
     finally:
         modem.close()
 
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
