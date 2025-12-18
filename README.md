@@ -12,6 +12,7 @@ Quick start (macOS / Linux)
 
 2. Run the CLI (example):
    - python modem.py --port /dev/cu.usbserial-XYZ --audio message.wav --dtmf 1
+   - The CLI will try to auto-detect a reasonable serial device if `--port` is not supplied on macOS/Linux.
    - Use `--no-audio` to skip playback, and `--verbose` for debug logs.
 
 Audio Playback

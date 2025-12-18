@@ -26,10 +26,10 @@
 - Tests: install pytest in your venv (`pip install pytest`) and run `python -m pytest -q` to execute unit tests (the parsing logic is covered by `tests/test_modem.py`).
 
 ## Platform & environment gotchas ⚠️
-- Filename shadowing: `import serial.py` will break `import serial` — rename the file before making changes or running tests.
-- Audio player is platform-dependent (`aplay` vs `afplay`); the code currently assumes `aplay`.
-- Permissions: opening `/dev/tty*` may require appropriate user permissions or `sudo`.
-- Hard-coded port: the script uses `'/dev/ttyUSB0'` by default; on macOS or other machines this will need adjustment.
+- Filename shadowing: the repo used to contain `import serial.py` which would shadow the `pyserial` package. The file now intentionally raises a helpful error and the recommended entrypoint is `modem.py` (see README for migration). ✅
+- Audio player is platform-dependent (`aplay` vs `afplay`/`play`); the code detects available players automatically (`choose_audio_player()`).
+- Permissions: opening `/dev/tty*` may require appropriate permissions or `sudo`. The CLI now emits actionable errors if opening a port fails (udev hint on Linux, sudo hint on macOS).
+- Default serial port: the CLI auto-detects a reasonable default per-platform (uses common device patterns on macOS/Linux). Pass `--port` to override if needed.
 
 ## Debugging tips 🐞
 - Check which `serial` is imported: `python -c "import serial; print(serial.__file__)"` to detect shadowed module.

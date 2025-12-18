@@ -3,7 +3,9 @@
 Replaces the old `import serial.py` script to avoid shadowing the `serial` package.
 """
 import argparse
+import glob
 import logging
+import os
 import platform
 import shutil
 import subprocess
@@ -36,11 +38,51 @@ def is_ring_line(line: str) -> bool:
     return "RING" in line.upper()
 
 
+def detect_default_port() -> Optional[str]:
+    """Detect a reasonable default serial port for the current platform.
+
+    Returns the first matching device path or a sensible fallback (or None if unknown).
+    """
+    system = platform.system()
+    patterns = []
+    fallback = None
+
+    if system == "Darwin":
+        patterns = ["/dev/cu.usbserial*", "/dev/tty.usbserial*", "/dev/cu.usbmodem*", "/dev/tty.usbmodem*", "/dev/cu.*usb*"]
+        # On macOS prefer explicit device discovery over guessing a name
+        fallback = None
+    elif system == "Linux":
+        patterns = ["/dev/ttyUSB*", "/dev/ttyACM*"]
+        fallback = "/dev/ttyUSB0"
+    elif system == "Windows":
+        # Simple fallback for Windows
+        patterns = []
+        fallback = "COM1"
+
+    for p in patterns:
+        matches = glob.glob(p)
+        if matches:
+            return matches[0]
+
+    return fallback
+
+
 class USBModemHandler:
     def __init__(self, port: str, baudrate: int = 9600, audio_player: Optional[str] = None):
         self.port = port
         self.baudrate = baudrate
-        self.ser = serial.Serial(port, baudrate, timeout=1)
+        # Validate and open serial port with helpful error messages on failure
+        try:
+            self.ser = serial.Serial(port, baudrate, timeout=1)
+        except Exception as e:
+            logging.error("Failed to open serial port %s: %s", port, e)
+            if isinstance(e, PermissionError) or "permission" in str(e).lower():
+                if platform.system() == "Linux":
+                    logging.error("Permission denied opening %s. Try: add a udev rule, add your user to the 'dialout' group, or run with sudo.", port)
+                elif platform.system() == "Darwin":
+                    logging.error("Permission denied opening %s. Check device permissions or try running with sudo.", port)
+            raise
+
         time.sleep(2)  # Wait for modem initialization
         self.ser.write(b"ATE0\r")  # Disable echo
         time.sleep(0.5)
