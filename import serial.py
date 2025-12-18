@@ -51,6 +51,7 @@ raise RuntimeError(
         """Close serial connection"""
         self.ser.close()
 
+
 if __name__ == "__main__":
     modem = USBModemHandler('/dev/ttyUSB0')  # Adjust port as needed
     
